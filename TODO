@@ -1,0 +1,2 @@
+* replace memcopy
+* show detail error(using extended error structure)
