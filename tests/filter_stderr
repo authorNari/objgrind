@@ -1,0 +1,12 @@
+#! /bin/sh
+
+dir=`dirname $0`
+
+$dir/../../tests/filter_stderr_basic    |
+
+# Anonymise addresses
+$dir/../../tests/filter_addresses                       |
+
+# Remove "Objgrind, ..." line and the following copyright line.
+sed "/^Objgrind, Memory checker for/ , /./ d"
+

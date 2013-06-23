@@ -1,0 +1,9 @@
+
+UnwritableMemoryError   at 0x........: test1 (tiny_tests.c:37)
+   by 0x........: main (tiny_tests.c:81)
+
+UnreferableError   at 0x........: test2 (tiny_tests.c:53)
+   by 0x........: main (tiny_tests.c:81)
+
+
+ERROR SUMMARY: 2 errors from 2 contexts (suppressed: 0 from 0)

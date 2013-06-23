@@ -1,0 +1,2 @@
+prog: tiny_tests
+stderr_filter: filter_stderr
