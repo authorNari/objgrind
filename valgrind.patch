@@ -1,0 +1,27 @@
+diff --git a/Makefile.am b/Makefile.am
+index 498463e..3a4cf9d 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -10,7 +10,8 @@ TOOLS =		memcheck \
+ 		lackey \
+ 		none \
+ 		helgrind \
+-		drd
++		drd \
++	        objgrind
+ 
+ EXP_TOOLS = 	exp-sgcheck \
+ 		exp-bbv \
+diff --git a/configure.in b/configure.in
+index 232ddcb..5f480b6 100644
+--- a/configure.in
++++ b/configure.in
+@@ -2608,6 +2608,8 @@ AC_CONFIG_FILES([
+    memcheck/tests/ppc64/Makefile
+    memcheck/tests/s390x/Makefile
+    memcheck/tests/vbit-test/Makefile
++   objgrind/Makefile
++   objgrind/tests/Makefile
+    cachegrind/Makefile
+    cachegrind/tests/Makefile
+    cachegrind/tests/x86/Makefile
