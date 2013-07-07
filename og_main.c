@@ -1086,6 +1086,9 @@ static Bool og_handle_client_request ( ThreadId tid, UWord* arg, UWord* ret )
    case VG_USERREQ__REMOVE_REFCHECK_FIELD:
        remove_refcheck_field(arg[1]);
        break;
+   case VG_USERREQ__CHECK_UNWRITABLE:
+      *ret = (get_abits2(arg[1]) == A_BITS2_UNWRITABLE);
+      break;
 
    default:
        VG_(message)(

@@ -35,9 +35,11 @@ static void test1()
 
 	VALGRIND_MAKE_UNWRITABLE(m, pgsz*2); /* all unwritable */
         m[0] = 'x'; /* report error */
+	assert(VALGRIND_CHECK_UNWRITABLE(&m[0]) == 1);
         m[pgsz*3] = 'x'; /* unreported */
 	VALGRIND_MAKE_NOCHECK(m, pgsz*2); /* writable */
         m[0] = 'x'; /* unreported */
+	assert(VALGRIND_CHECK_UNWRITABLE(&m[0]) == 0);
 }
 
 /* Case 2 - unreferable */

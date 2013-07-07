@@ -68,6 +68,8 @@ typedef
       VG_USERREQ__ADD_REFCHECK_FIELD,
       VG_USERREQ__REMOVE_REFCHECK_FIELD,
 
+      VG_USERREQ__CHECK_UNWRITABLE,
+
    } Vg_ObjgrindClientRequest;
 
 #define VALGRIND_MAKE_NOCHECK(_qzz_addr,_qzz_len)               \
@@ -93,6 +95,11 @@ typedef
 #define VALGRIND_REMOVE_REFCHECK_FIELD(_qzz_addr)               \
     VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,     \
                             VG_USERREQ__REMOVE_REFCHECK_FIELD,  \
+                            (_qzz_addr), 0, 0, 0, 0)
+
+#define VALGRIND_CHECK_UNWRITABLE(_qzz_addr)                    \
+    VALGRIND_DO_CLIENT_REQUEST_EXPR(0 /* default return */,     \
+                            VG_USERREQ__CHECK_UNWRITABLE,       \
                             (_qzz_addr), 0, 0, 0, 0)
 
 #endif
