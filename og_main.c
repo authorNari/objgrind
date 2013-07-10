@@ -816,7 +816,7 @@ static IRAtom* assignNew ( IRSB* bbOut, IRType ty, IRExpr* e )
    return IRExpr_RdTmp(t);
 }
 
-static IRExpr* zwidenToHostWord (IRSB* bbOut, IRType tyH, IRAtom* atom)
+static IRAtom* zwidenToHostWord (IRSB* bbOut, IRType tyH, IRAtom* atom)
 {
    IRType ty;
 
@@ -824,6 +824,11 @@ static IRExpr* zwidenToHostWord (IRSB* bbOut, IRType tyH, IRAtom* atom)
 
    if (tyH == Ity_I32) {
       switch (ty) {
+         case Ity_F32:
+            return assignNew(bbOut, tyH, unop(Iop_ReinterpF32asI32, atom));
+         case Ity_D32:
+             return assignNew(bbOut, tyH, unop(Iop_64to32,
+                    unop(Iop_ReinterpD64asI64, unop(Iop_D32toD64, atom))));
          case Ity_I32:
             return atom;
          case Ity_I16:
@@ -836,6 +841,12 @@ static IRExpr* zwidenToHostWord (IRSB* bbOut, IRType tyH, IRAtom* atom)
    } else
    if (tyH == Ity_I64) {
       switch (ty) {
+         case Ity_F32:
+            return assignNew(bbOut, tyH, unop(Iop_32Uto64,
+                   assignNew(bbOut, Ity_I32, unop(Iop_ReinterpF32asI32, atom))));
+         case Ity_D32:
+            return assignNew(bbOut, tyH, unop(Iop_ReinterpD64asI64,
+                   assignNew(bbOut, Ity_D64, unop(Iop_D32toD64, atom))));
          case Ity_I32:
             return assignNew(bbOut, tyH, unop(Iop_32Uto64, atom));
          case Ity_I16:
@@ -872,9 +883,16 @@ insert_store_checker(IRSB* bbOut, IRAtom* addr, IRAtom* data, IRAtom* guard, IRT
     switch (ty) {
     case Ity_V256:
     case Ity_V128:
+    case Ity_I128:
+    case Ity_D128:
+    case Ity_F128:
+    case Ity_D64:
+    case Ity_F64:
     case Ity_I64: helper = &OG_(store_check64);
         hname = "OG_(store_check64)";
         break;
+    case Ity_F32:
+    case Ity_D32:
     case Ity_I32: helper = &OG_(store_check32);
         hname = "OG_(store_check32)";
         break;
@@ -884,7 +902,9 @@ insert_store_checker(IRSB* bbOut, IRAtom* addr, IRAtom* data, IRAtom* guard, IRT
     case Ity_I8: helper = &OG_(store_check8);
         hname = "OG_(store_check8)";
         break;
-    default: VG_(tool_panic)("objgrind:insert_store_checker");
+    default:
+        VG_(printf)("\nty = "); ppIRType(ty); VG_(printf)("\n");
+        VG_(tool_panic)("objgrind:insert_store_checker");
     }
 
     wordSize = mkU32(tyAddr == Ity_I32 ? 32 : 64);
@@ -935,22 +955,45 @@ insert_store_checker(IRSB* bbOut, IRAtom* addr, IRAtom* data, IRAtom* guard, IRT
         addStmtToIRSB(bbOut, IRStmt_Dirty(diQ2));
         addStmtToIRSB(bbOut, IRStmt_Dirty(diQ3));
     }
-    else if (UNLIKELY(ty == Ity_V128)) {
+    else if (UNLIKELY(ty == Ity_V128 || ty == Ity_I128 || ty == Ity_F128 || ty == Ity_D128)) {
         IRDirty *diLo64, *diHi64;
         IRAtom  *addrLo64, *addrHi64;
         IRAtom  *dataLo64, *dataHi64;
         IRAtom  *eBiasLo64, *eBiasHi64;
+        IRAtom *loOp, *hiOp;
+
+        switch (ty) {
+        case Ity_V128:
+            loOp = unop(Iop_V128to64, data);
+            hiOp = unop(Iop_V128HIto64, data);
+            break;
+        case Ity_I128:
+            loOp = unop(Iop_128to64, data);
+            hiOp = unop(Iop_128HIto64, data);
+            break;
+        case Ity_F128:
+            loOp = unop(Iop_F64toI64U, assignNew(bbOut, Ity_F64, unop(Iop_F128LOtoF64, data)));
+            hiOp = unop(Iop_F64toI64U, assignNew(bbOut, Ity_F64, unop(Iop_F128HItoF64, data)));
+            break;
+        case Ity_D128:
+            loOp = unop(Iop_D64toI64U, assignNew(bbOut, Ity_D64, unop(Iop_D128LOtoD64, data)));
+            hiOp = unop(Iop_D64toI64U, assignNew(bbOut, Ity_D64, unop(Iop_D128HItoD64, data)));
+            break;
+        default:
+          ppIRType(ty);
+          VG_(tool_panic)("objgrind:insert_store_checker");
+        }
 
         eBiasLo64 = tyAddr==Ity_I32 ? mkU32(0) : mkU64(0);
         addrLo64  = assignNew(bbOut, tyAddr, binop(mkAdd, addr, eBiasLo64) );
-        dataLo64 = assignNew(bbOut, Ity_I64, unop(Iop_V128to64, data));
+        dataLo64 = assignNew(bbOut, Ity_I64, loOp);
         diLo64    = unsafeIRDirty_0_N(0,
             hname, VG_(fnptr_to_fnentry)( helper ), 
             mkIRExprVec_2( addrLo64, dataLo64 )
             );
         eBiasHi64 = tyAddr==Ity_I32 ? mkU32(8) : mkU64(8);
         addrHi64  = assignNew(bbOut, tyAddr, binop(mkAdd, addr, eBiasHi64) );
-        dataHi64 = assignNew(bbOut, Ity_I64, unop(Iop_V128HIto64, data));
+        dataHi64 = assignNew(bbOut, Ity_I64, hiOp);
         diHi64    = unsafeIRDirty_0_N(0,
             hname, VG_(fnptr_to_fnentry)( helper ), 
             mkIRExprVec_2( addrHi64, dataHi64 )
@@ -966,10 +1009,27 @@ insert_store_checker(IRSB* bbOut, IRAtom* addr, IRAtom* data, IRAtom* guard, IRT
 
         addrAct = addr;
 
-        if (ty == Ity_I64) {
+        if (ty == Ity_I64 || ty == Ity_F64 || ty == Ity_D64) {
+            IRAtom *d;
+
+            switch (ty) {
+            case Ity_I64:
+                d = data;
+                break;
+            case Ity_F64:
+                d = assignNew(bbOut, Ity_I64, unop(Iop_ReinterpF64asI64, data));
+                break;
+            case Ity_D64:
+                d = assignNew(bbOut, Ity_I64, unop(Iop_ReinterpD64asI64, data));
+                break;
+            default:
+                ppIRType(ty);
+                VG_(tool_panic)("objgrind:insert_store_checker");
+            }
+            
           di = unsafeIRDirty_0_N(0,
               hname, VG_(fnptr_to_fnentry)( helper ), 
-              mkIRExprVec_2( addrAct, data )
+              mkIRExprVec_2( addrAct, d )
               );
         }
         else {
